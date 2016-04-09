@@ -5,18 +5,64 @@ date: "Sunday, March 27, 2016"
 output: html_document
 ---
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+**importing data** 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r}
-summary(cars)
+```{r results = 'hide',message=FALSE}
+training <- read.csv('E:/r/coursera/week4/pml-training.csv',na.strings=c('NA',''),stringsAsFactors = F)
+training[training == "#DIV/0!" ] = NA
+testing<-read.csv('E:/r/coursera/week4/pml-testing.csv',na.strings=c('NA',''),stringsAsFactors = F)
+testing[testing == "#DIV/0!" ] = NA
+str(training)
+```
+```{r echo=FALSE}
+dim(training)
+dim(testing)
 ```
 
-You can also embed plots, for example:
 
-```{r, echo=FALSE}
-plot(cars)
+### Missing Percentage Column and Row wise
+
+* choosing character values whose values are depicted as number.
+* Converting back to numeric values
+
+
+```{r results = 'hide',message=FALSE}
+train_char<-lapply(training,is.character)
+names(train_char)[train_char==TRUE]
+train_miss<-training[,-c(2,6,160)]
+dim(train_miss)
+
+i <- sapply(train_miss, is.character)
+train_miss[i] <- lapply(train_miss[i], as.numeric)
+str(train_miss)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+###### Missing Percentage column wise
+
+101 columns have missing values more than `95%`
+
+
+```{r results = 'hide'}
+
+hasMissing <- unlist(lapply(train_miss, function(x) any(is.na(x))))
+
+names_missPer<-unlist(lapply(train_miss[,hasMissing],function(x){sum(is.na(x))/length(x)*100}))
+
+
+```
+
+###### Missing Percentage row wise
+
+98 Percentage of rows have more than `64 %` of columns missing
+
+```{r results = 'hide'}
+miss_row<-apply((train_miss[,hasMissing]), 1, function(x) {sum(is.na(x))/dim(train_miss)[2]*100})
+
+```
+
+
+
+
+
+
