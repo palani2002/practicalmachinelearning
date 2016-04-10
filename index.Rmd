@@ -1,9 +1,22 @@
 ---
 title: "Practical Machine Learning Course Project"
 author: "Palani"
-date: "Sunday, March 27, 2016"
+date: "Sunday, April 10, 2016"
 output: html_document
 ---
+# Objective
+
+The goal of the project is to predict `the manner` in which the subjects did the `exercise`.
+
+##Introduction
+
+`Human activity` recognition is an area of increasing interest for many people that want to monitor their daily activities. Monitoring behaviour patterns with human activity recognition devices such as the Jawbone UP, Nike FuelBan, and Fitbit are helping people closely monitor their exercise routines while improving their health.
+
+### Data Description
+
+The dataset with 5 classes (sitting-down, standing-up, standing, walking, and sitting) collected on 8 hours of activities of 6 healthy subjects .More Details in [Human Activity Recognition](http://groupware.les.inf.puc-rio.br/har).
+
+
 
 **importing data** 
 
@@ -27,7 +40,7 @@ dim(testing)
 * Converting back to numeric values
 
 
-```{r results = 'hide',message=FALSE}
+```{r results = 'hide',message=FALSE,warning=FALSE}
 train_char<-lapply(training,is.character)
 names(train_char)[train_char==TRUE]
 train_miss<-training[,-c(2,6,160)]
@@ -38,7 +51,7 @@ train_miss[i] <- lapply(train_miss[i], as.numeric)
 str(train_miss)
 ```
 
-###### Missing Percentage column wise
+###### Missing Percentage on column wise
 
 101 columns have missing values more than `95%`
 
@@ -52,7 +65,7 @@ names_missPer<-unlist(lapply(train_miss[,hasMissing],function(x){sum(is.na(x))/l
 
 ```
 
-###### Missing Percentage row wise
+###### Missing Percentage on row wise
 
 98 Percentage of rows have more than `64 %` of columns missing
 
@@ -61,7 +74,230 @@ miss_row<-apply((train_miss[,hasMissing]), 1, function(x) {sum(is.na(x))/dim(tra
 
 ```
 
+###Response distribution for the `classe` variable
 
+Almost equal distributiion among all calsses execpt Classe `A`
+
+
+
+```{r results='hide' ,message=FALSE}
+tail(training)
+counts = table(training$classe)
+library(lattice)
+barchart(Freq ~ Var1,
+         data = as.data.frame(counts),
+         ylim = c(0, max(counts)*1.1),
+         ylab = "Frequency",
+         xlab = "class")
+```
+
+
+
+
+
+
+
+
+
+
+### classe variable description
+
+   + Sitting A
+   + Sitting down B
+   + Standing C
+   + Standing up D
+   + Walking E
+   
+Percentage of `classe` variable distribution
+
+```{r echo=FALSE}
+prop.table(counts)
+```
+
+### Setting `predictor` and `response` 
+
+```{r}
+Trainpredictors <- subset(training,select= -classe)
+class <- training[,c('classe')]
+Testpredictors<-subset(testing,select= -problem_id)
+```
+
+
+#### Removing near zero variance predictor
+
+*Identify and remove NZV from both train and test dataset*
+
+```{r echo=FALSE,message=FALSE}
+library(caret)
+nzvpp <- nearZeroVar(Trainpredictors)
+trainPredictors <- Trainpredictors[-nzvpp]
+testPredictors <- Testpredictors[-nzvpp]
+```
+
+After removing near zero variance predictors, the dimension of `training` and `testing` datasets.
+
+```{r echo=FALSE}
+dim(trainPredictors)
+dim(testPredictors)
+```
+
+### Missing value treatment
+
+Columns having more than `95% Missing Values` are removed as they will not give any importance to the 
+response
+
+```{r echo=FALSE}
+hasMissing <- unlist(lapply(trainPredictors, function(x) any(is.na(x))))
+missTrain<-unlist(lapply(trainPredictors[,hasMissing],function(x){sum(is.na(x))/length(x)*100}))
+has<-which(hasMissing)
+index<-unname(which(hasMissing))
+train<-trainPredictors[,-index]
+test<-testPredictors[,-index]
+
+```
+
+After removing Missing Values predictors, the dimension` of `training` and `testing` datasets.
+
+```{r echo=FALSE}
+dim(train)
+dim(test)
+```
+
+Removing id ,names and dates as it does not contribute to model performance.
+
+```{r }
+train<-train[,-(1:5)]
+test<-test[,-(1:5)]
+```
+
+## Data Splitting
+
+Using stratified random sampling based on response , data is split into `training` and `validation`
+
+```{r results='hide'}
+set.seed(517)
+trainingRows <- createDataPartition(class,p = .70,list= FALSE)
+trainPredictors<- train[trainingRows,]
+trainResponse <- class[trainingRows]
+validPredictors <- train[-trainingRows,]
+validResponse<-class[-trainingRows]
+```
+```{r echo=FALSE}
+dim(trainPredictors)
+length(trainResponse)
+dim(validPredictors)
+length(validResponse)
+```
+
+Checking the names of predictors in both training and test datasets
+
+```{r results='hide'}
+names(test)==names(trainPredictors)
+```
+
+*Converting response variable from character to factor*
+
+```{r echo=FALSE}
+trainResponse<-as.factor(trainResponse)
+
+```
+
+
+## Modeling 
+
+Choosing **Random Forest** classifier for classification.
+
+
+```{r message=FALSE,warning=FALSE}
+library(randomForest)
+modFitB1 <- randomForest(trainResponse~.,data=trainPredictors)
+prediction<-predict(modFitB1, validPredictors,type='class')
+confusionMatrix(prediction, validResponse)$overall[1]
+```
+
+`OOB estimate of  error rate`: 0.22%
+
+Model in sample error is slightly higher than out of sample error
+
+## cross validation 
+
+To avoid `over-fitting` in random forest and optimize a `tuning parameter` that governs the number of features that are randomly chosen to grow each tree from the bootstrapped data. Typically, doing this via k-fold cross-validation, where k{5,10}, and choose the tuning parameter that minimizes test sample prediction error. In addition, growing a larger forest will improve predictive accuracy.
+```{r }
+
+crossval <- rfcv(trainPredictors,trainResponse)
+```
+
+*Finding the optimal Number of `variables vs error` using the plot*
+
+```{r echo=FALSE}
+crossval$n.var
+crossval$error.cv
+```
+
+```{r echo=FALSE}
+
+with(crossval, plot(n.var, error.cv, log="x", type="o", lwd=2,
+                    xlab="Number of Variables", ylab="Error Rate"))
+#title for plot
+title(main="Estimated Error Rate")
+
+```
+
+
+
+**predictors with Gini importance value**
+```{r }
+import <- importance(modFitB1, sort = TRUE)
+```
+
+**reordering predictors by importance**
+
+```{r}
+import <- import[order(import, decreasing=TRUE),,drop = FALSE]
+
+```
+
+**24 predictors listed by Gini importance**
+```{r echo=FALSE}
+import[1:24,,drop = FALSE]
+```
+
+*subset of 24 most important predictors*
+```{r }
+cleantrain24 <- trainPredictors[,rownames(import)[1:24]]
+
+```
+
+**random forest model fit with 24 most important predictors**
+```{r}
+modelFit24 <- randomForest(trainResponse ~., data=cleantrain24)
+```
+
+`OOB estimate` of  error rate: 0.2%
+
+Predicting with `validation` Predictors 
+
+```{r}
+pred <- predict(modelFit24,validPredictors)
+
+confusionMatrix(pred,validResponse)$overall[1]
+
+```
+
+`Out of sample errror` marginally improved over `in sample error`.
+
+
+### Conclusion
+
+We succeeded in producing a random forest model that predicted the form of different excercise positions  being preformed by a participant. Our approximate outside sample error is at 0.19% which help generalise the  model accurately. By implementing this model, we can classify the type of excercise the subjects do in matter of seconds. 
+
+
+###Predicting test dataset `quiz`
+
+```{r }
+pred <- predict(modelFit24,test,type='class')
+
+```
 
 
 
