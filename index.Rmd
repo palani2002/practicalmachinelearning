@@ -80,8 +80,7 @@ Almost equal distributiion among all calsses execpt Classe `A`
 
 
 
-```{r results='hide' ,message=FALSE}
-tail(training)
+```{r echo=FALSE,message=FALSE}
 counts = table(training$classe)
 library(lattice)
 barchart(Freq ~ Var1,
@@ -245,6 +244,16 @@ title(main="Estimated Error Rate")
 
 
 
+
+
+
+
+
+
+
+
+
+
 **predictors with Gini importance value**
 ```{r }
 import <- importance(modFitB1, sort = TRUE)
@@ -300,5 +309,5 @@ pred <- predict(modelFit24,test,type='class')
 ```
 
 
-
+http://palani2002.github.io/practicalmachinelearning
 
